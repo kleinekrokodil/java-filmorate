@@ -32,7 +32,7 @@ public class FilmController {
             log.error(RELEASE_DATE_ERROR);
             throw new ValidationException(RELEASE_DATE_ERROR);
         }
-        log.info("Добавление фильма \"{}\"", film.getDescription());
+        log.info("Добавление фильма \"{}\"", film.getName());
         film.setId(getNextId());
         films.put(film.getId(), film);
         return film;
