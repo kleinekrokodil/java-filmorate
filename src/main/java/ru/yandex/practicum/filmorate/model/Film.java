@@ -13,12 +13,13 @@ import java.time.LocalDate;
 @Slf4j
 public class Film {
     Integer id;
-    @NotNull(message = "Название не может быть пустым")
     @NotBlank(message = "Название не может быть пустым")
     String name;
     @Length(max = 200, message = "Максимальная длина описания — 200 символов")
     String description;
+    @NotNull(message = "Дата выхода фильма должна быть заполнена")
     LocalDate releaseDate;
+    @NotNull(message = "Продолжительность фильма должна быть заполнена")
     @Positive(message = "Продолжительность фильма должна быть положительным числом")
     Integer duration;
 }

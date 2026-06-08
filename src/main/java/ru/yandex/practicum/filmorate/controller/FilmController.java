@@ -17,18 +17,19 @@ import java.util.Map;
 @RequestMapping("/films")
 public class FilmController {
     private final Map<Integer, Film> films = new HashMap<>();
-    private static final String FIRST_FILM_DATE = "1895-12-28";
+    private static final LocalDate FIRST_FILM_DATE = LocalDate.of(1895, 12, 28);
     private static final String RELEASE_DATE_ERROR = "Дата релиза — не раньше 28 декабря 1895 года;";
     private static final String MISSED_ID_ERROR = "Id должен быть указан";
 
     @GetMapping
     public Collection<Film> getAll() {
+        log.info("Получение списка фильмов");
         return films.values();
     }
 
     @PostMapping
     public Film create(@Valid @RequestBody Film film) {
-        if (film.getReleaseDate().isBefore(LocalDate.parse(FIRST_FILM_DATE))) {
+        if (film.getReleaseDate().isBefore(FIRST_FILM_DATE)) {
             log.error(RELEASE_DATE_ERROR);
             throw new ValidationException(RELEASE_DATE_ERROR);
         }
@@ -44,7 +45,7 @@ public class FilmController {
             log.error(MISSED_ID_ERROR);
             throw new ValidationException(MISSED_ID_ERROR);
         }
-        if (film.getReleaseDate().isBefore(LocalDate.parse(FIRST_FILM_DATE))) {
+        if (film.getReleaseDate().isBefore(FIRST_FILM_DATE)) {
             log.error(RELEASE_DATE_ERROR);
             throw new ValidationException(RELEASE_DATE_ERROR);
         }

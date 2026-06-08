@@ -20,6 +20,7 @@ public class UserController {
 
     @GetMapping
     public Collection<User> getAll() {
+        log.info("Получение списка пользователей");
         return users.values();
     }
 
@@ -27,7 +28,7 @@ public class UserController {
     public User create(@Valid @RequestBody User user) {
         // проверяем выполнение необходимых условий
         user.setId(getNextId());
-        if (user.getName() == null) {
+        if (isUserNameEmpty(user)) {
             user.setName(user.getLogin());
         }
         users.put(user.getId(), user);
@@ -44,7 +45,7 @@ public class UserController {
         }
         if (users.containsKey(newUser.getId())) {
             User oldUser = users.get(newUser.getId());
-            oldUser.setName(newUser.getName() == null ? newUser.getLogin() : newUser.getName());
+            oldUser.setName(isUserNameEmpty(newUser) ? newUser.getLogin() : newUser.getName());
             oldUser.setLogin(newUser.getLogin());
             oldUser.setEmail(newUser.getEmail());
             oldUser.setBirthday(newUser.getBirthday());
@@ -53,6 +54,10 @@ public class UserController {
         }
         log.error("Пользователь с id = {} не найден", newUser.getId());
         throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
+    }
+
+    private boolean isUserNameEmpty(User user) {
+        return user.getName() == null || user.getName().isBlank();
     }
 
     // вспомогательный метод для генерации идентификатора нового пользователя

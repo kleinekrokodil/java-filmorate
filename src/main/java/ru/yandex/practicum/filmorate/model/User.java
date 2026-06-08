@@ -10,13 +10,14 @@ import java.time.LocalDate;
 @Slf4j
 public class User {
     Integer id;
-    @NotEmpty(message = "Имейл должен быть указан")
+    @NotBlank(message = "Имейл должен быть указан")
     @Email(message = "Имейл введен некорректно")
     String email;
-    @NotEmpty(message = "Логин не должен быть пустым")
+    @NotBlank(message = "Логин не должен быть пустым")
     @Pattern(regexp = "^\\S+$", message = "Логин не должен быть пустым или содержать пробелы")
     String login;
     String name;
+    @NotNull(message = "Дата рождения должна быть заполнена")
     @PastOrPresent(message = "Дата рождения не может быть в будущем")
     LocalDate birthday;
 }
