@@ -65,6 +65,16 @@ public class InMemoryUserStorage implements UserStorage {
         return users.values();
     }
 
+    @Override
+    public User get(Integer userId) {
+        if (!users.containsKey(userId)) {
+            log.error("Пользователь с id = {} не найден", userId);
+            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
+        }
+        log.info("Получение пользователя с id = {}", userId);
+        return users.get(userId);
+    }
+
     private boolean isUserNameEmpty(User user) {
         return user.getName() == null || user.getName().isBlank();
     }
