@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.validator.constraints.Length;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Data
 @Slf4j
@@ -22,4 +24,5 @@ public class Film {
     @NotNull(message = "Продолжительность фильма должна быть заполнена")
     @Positive(message = "Продолжительность фильма должна быть положительным числом")
     private Integer duration;
+    private Set<Integer> likes = new HashSet<>();
 }

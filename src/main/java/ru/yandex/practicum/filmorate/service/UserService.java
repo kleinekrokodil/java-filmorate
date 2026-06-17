@@ -24,8 +24,8 @@ public class UserService {
         return userStorage.update(user);
     }
 
-    public User delete(Integer userId) {
-        return userStorage.delete(userId);
+    public void delete(Integer userId) {
+        userStorage.delete(userId);
     }
 
     public Collection<User> getAll() {
