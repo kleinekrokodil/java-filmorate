@@ -22,4 +22,10 @@ public class ErrorHandler {
     public Map<String, String> handleValidationException(final ValidationException e) {
         return Map.of("Ошибка валидации", e.getMessage());
     }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Map<String, String> handleException(final RuntimeException e) {
+        return Map.of("Ошибка сервера", e.getMessage());
+    }
 }
