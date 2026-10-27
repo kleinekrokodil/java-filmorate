@@ -8,8 +8,8 @@ import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.in_memory.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.in_memory.InMemoryUserStorage;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDate;
