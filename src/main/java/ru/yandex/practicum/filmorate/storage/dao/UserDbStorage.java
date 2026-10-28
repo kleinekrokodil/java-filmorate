@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
+import ru.yandex.practicum.filmorate.exception.InternalServerException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 import ru.yandex.practicum.filmorate.storage.dao.mappers.UserRowMapper;
@@ -21,6 +24,8 @@ public class UserDbStorage implements UserStorage {
     private final JdbcTemplate jdbc;
     private final UserRowMapper mapper;
 
+    private static final String MISSED_ID_ERROR = "Id должен быть указан";
+
     @Override
     public User create(User user) {
         String query = """
@@ -36,7 +41,12 @@ public class UserDbStorage implements UserStorage {
             ps.setDate(4, Date.valueOf(user.getBirthday()));
             return ps;
         }, keyHolder);
-        user.setId(keyHolder.getKeyAs(Integer.class));
+        Integer id = keyHolder.getKeyAs(Integer.class);
+        if (id == null) {
+            log.error("Не удалось получить id пользователя");
+            throw new InternalServerException("Не удалось получить id пользователя");
+        }
+        user.setId(id);
         log.info("Пользователь с Id={} успешно создан", user.getId());
         return user;
     }
@@ -48,16 +58,56 @@ public class UserDbStorage implements UserStorage {
                 SET email = ?, login = ?, name = ?, birthday = ?
                 WHERE id = ?
                 """;
-        jdbc.update(query, user.getEmail(), user.getLogin(), user.getName(), user.getBirthday(), user.getId());
-        User newUser = get(user.getId()).orElseThrow();
-        log.info("Пользователь с Id={} успешно обновлен", newUser.getId());
-        return newUser;
+        int updated = jdbc.update(query,
+                user.getEmail(),
+                user.getLogin(),
+                user.getName(),
+                Date.valueOf(user.getBirthday()),
+                user.getId());
+        if (updated == 0) {
+            throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
+        }
+        log.info("Пользователь с Id={} успешно обновлен", user.getId());
+        return  get(user.getId()).orElseThrow();
+    }
+
+    @Override
+    public void addFriend(Integer userId, Integer friendId) {
+        log.info("Объявление пользователя с id={} в друзья пользователя {}", friendId, userId);
+        String query = """
+                MERGE INTO user_friends (user_id, friend_id) KEY (user_id, friend_id)
+                VALUES (?, ?)
+                """;
+        int updated = jdbc.update(query, userId, friendId);
+        if (updated == 0) {
+            // Если в наличии оба пользователя - значит они друзья, иначе бросаем исключение
+            checkUserId(userId);
+            checkUserId(friendId);
+        }
+    }
+
+    @Override
+    public void removeFriend(Integer userId, Integer friendId) {
+        log.info("Удаление пользователя с id={} из друзей пользователя {}", friendId, userId);
+        String query = """
+                DELETE FROM user_friends
+                WHERE user_id = ? AND friend_id=  ?
+                """;
+        int removed = jdbc.update(query, userId, friendId);
+        if (removed == 0) {
+            // Если в наличии оба пользователя - значит они не друзья, иначе бросаем исключение
+            checkUserId(userId);
+            checkUserId(friendId);
+        }
     }
 
     @Override
     public void delete(Integer userId) {
         log.info("Удаление пользователя с id={}", userId);
-        jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        int deleted = jdbc.update("DELETE FROM users WHERE id = ?", userId);
+        if (deleted == 0) {
+            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
+        }
     }
 
     @Override
@@ -87,5 +137,42 @@ public class UserDbStorage implements UserStorage {
             user.setFriends(friendsByUser.getOrDefault(user.getId(), new HashSet<>()));
         }
         return users;
+    }
+
+    @Override
+    public Collection<User> getUserFriends(Integer userId) {
+        checkUserId(userId);
+        return jdbc.query("""
+                        SELECT u.id, u.email, u.login, u.name, u.birthday
+                        FROM users u
+                        JOIN user_friends uf ON uf.friend_id = u.id
+                        WHERE uf.user_id = ?
+                        """,
+                mapper, userId);
+    }
+
+    @Override
+    public Collection<User> getCommonFriends(Integer user1Id, Integer user2Id) {
+        checkUserId(user1Id);
+        checkUserId(user2Id);
+        return jdbc.query("""
+                        SELECT u.id, u.email, u.login, u.name, u.birthday
+                        FROM users u
+                        JOIN user_friends uf1 ON uf1.friend_id = u.id
+                        JOIN user_friends uf2 ON uf2.friend_id = u.id
+                        WHERE uf1.user_id = ? AND uf2.user_id = ?
+                        """,
+                mapper, user1Id, user2Id);
+    }
+
+    private void checkUserId(Integer userId) {
+        if (userId == null) {
+            log.error(MISSED_ID_ERROR);
+            throw new ValidationException(MISSED_ID_ERROR);
+        }
+        if (get(userId).isEmpty()) {
+            log.error("Пользователь с id = {} не найден", userId);
+            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
+        }
     }
 }

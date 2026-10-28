@@ -5,10 +5,7 @@ import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -33,6 +30,24 @@ public class InMemoryFilmStorage implements FilmStorage {
         oldFilm.setReleaseDate(film.getReleaseDate());
         oldFilm.setDuration(film.getDuration());
         return oldFilm;
+    }
+
+    @Override
+    public void addLike(Integer filmId, Integer userId) {
+        log.info("Пользователь с id={} ставит лайк фильму с id={}", userId, filmId);
+        Film film = films.get(filmId);
+        Set<Integer> likes = film.getLikes();
+        likes.add(userId);
+        film.setLikes(likes);
+    }
+
+    @Override
+    public void removeLike(Integer filmId, Integer userId) {
+        log.info("Пользователь с id={} удаляет лайк фильму с id={}", userId, filmId);
+        Film film = films.get(filmId);
+        Set<Integer> likes = film.getLikes();
+        likes.remove(userId);
+        film.setLikes(likes);
     }
 
     @Override

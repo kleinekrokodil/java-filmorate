@@ -6,7 +6,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.dao.mappers.FilmRowMapper;
 
@@ -53,6 +52,26 @@ public class FilmDbStorage implements FilmStorage {
         Film newFilm = get(film.getId()).orElseThrow();
         log.info("Фильм с Id={} успешно обновлен", newFilm.getId());
         return newFilm;
+    }
+
+    @Override
+    public void addLike(Integer filmId, Integer userId) {
+        log.info("Пользователь с id={} ставит лайк фильму с id={}", userId, filmId);
+        String query = """
+                MERGE INTO film_likes (film_id, user_id)
+                VALUES (?, ?)
+                """;
+        jdbc.update(query, filmId, userId);
+    }
+
+    @Override
+    public void removeLike(Integer filmId, Integer userId) {
+        log.info("Пользователь с id={} удаляет лайк фильму с id={}", userId, filmId);
+        String query = """
+                DELETE FROM film_likes
+                WHERE film_id = ? AND user_id=  ?
+                """;
+        jdbc.update(query, filmId, userId);
     }
 
     @Override

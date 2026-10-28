@@ -7,13 +7,11 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -52,23 +50,13 @@ public class FilmService {
     public void addLike(Integer filmId, Integer userId) {
         checkFilmId(filmId);
         checkUserId(userId);
-        Film film = filmStorage.get(filmId).get();
-        User user = userStorage.get(userId).get();
-        log.info("Пользователь с id={} ставит лайк фильму с id={}", userId, filmId);
-        Set<Integer> likes = film.getLikes();
-        likes.add(user.getId());
-        film.setLikes(likes);
+        filmStorage.addLike(filmId, userId);
     }
 
     public void removeLike(Integer filmId, Integer userId) {
         checkFilmId(filmId);
         checkUserId(userId);
-        Film film = filmStorage.get(filmId).get();
-        User user = userStorage.get(userId).get();
-        log.info("Пользователь с id={} удаляет лайк фильму с id={}", userId, filmId);
-        Set<Integer> likes = film.getLikes();
-        likes.remove(user.getId());
-        film.setLikes(likes);
+        filmStorage.removeLike(filmId, userId);
     }
 
     public Collection<Film> getPopular(Integer count) {
@@ -88,20 +76,12 @@ public class FilmService {
             log.error(MISSED_ID_ERROR);
             throw new ValidationException(MISSED_ID_ERROR);
         }
-        if (userStorage.get(userId).isEmpty()) {
-            log.error("Пользователь с id = {} не найден", userId);
-            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-        }
     }
 
     private void checkFilmId(Integer filmId) {
         if (filmId == null) {
             log.error(MISSED_ID_ERROR);
             throw new ValidationException(MISSED_ID_ERROR);
-        }
-        if (filmStorage.get(filmId).isEmpty()) {
-            log.error("Фильм с id = {} не найден", filmId);
-            throw new NotFoundException("Фильм с id = " + filmId + " не найден");
         }
     }
 
