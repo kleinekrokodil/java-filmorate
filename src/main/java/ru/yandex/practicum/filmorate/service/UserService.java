@@ -28,6 +28,9 @@ public class UserService {
     }
 
     public User update(User user) {
+        if (user.isUserNameEmpty()) {
+            user.setName(user.getLogin());
+        }
         return userStorage.update(user);
     }
 
@@ -37,6 +40,11 @@ public class UserService {
 
     public Collection<User> getAll() {
         return userStorage.getAll();
+    }
+
+    public User get(Integer userId) {
+        return userStorage.get(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id = " + userId + " не найден"));
     }
 
     public void addFriend(Integer userId, Integer friendId) {

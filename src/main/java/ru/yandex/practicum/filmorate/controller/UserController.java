@@ -21,6 +21,11 @@ public class UserController {
         return userService.getAll();
     }
 
+    @GetMapping("/{userId}")
+    public User get(@PathVariable Integer userId) {
+        return userService.get(userId);
+    }
+
     @GetMapping("/{userId}/friends")
     public Collection<User> getFriends(@PathVariable Integer userId) {
         return userService.getFriends(userId);
@@ -47,7 +52,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
-    public void delete(@RequestParam Integer userId) {
+    public void delete(@PathVariable Integer userId) {
         userService.delete(userId);
     }
 

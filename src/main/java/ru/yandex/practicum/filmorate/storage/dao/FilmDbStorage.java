@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
+import ru.yandex.practicum.filmorate.exception.InternalServerException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.dao.mappers.FilmRowMapper;
@@ -36,7 +38,12 @@ public class FilmDbStorage implements FilmStorage {
             ps.setInt(4, film.getDuration());
             return ps;
         }, keyHolder);
-        film.setId(keyHolder.getKeyAs(Integer.class));
+        Integer id = keyHolder.getKeyAs(Integer.class);
+        if (id == null) {
+            log.error("Не удалось получить id фильма");
+            throw new InternalServerException("Не удалось получить id фильма");
+        }
+        film.setId(id);
         log.info("Фильм с Id={} успешно создан", film.getId());
         return film;
     }
@@ -48,7 +55,15 @@ public class FilmDbStorage implements FilmStorage {
                 SET name = ?, description = ?, release_date = ?, duration = ?
                 WHERE id = ?
                 """;
-        jdbc.update(query, film.getName(), film.getDescription(),film.getReleaseDate(), film.getDuration(), film.getId());
+        int updated = jdbc.update(query,
+                film.getName(),
+                film.getDescription(),
+                Date.valueOf(film.getReleaseDate()),
+                film.getDuration(),
+                film.getId());
+        if (updated == 0) {
+            throw new NotFoundException("Фильм с id = " + film.getId() + " не найден");
+        }
         Film newFilm = get(film.getId()).orElseThrow();
         log.info("Фильм с Id={} успешно обновлен", newFilm.getId());
         return newFilm;

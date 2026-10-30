@@ -47,6 +47,12 @@ public class FilmService {
         return filmStorage.getAll();
     }
 
+    public Film get(Integer filmId) {
+        checkFilmId(filmId);
+        return filmStorage.get(filmId)
+                .orElseThrow(() -> new NotFoundException("Фильм с id = " + filmId + " не найден"));
+    }
+
     public void addLike(Integer filmId, Integer userId) {
         checkFilmId(filmId);
         checkUserId(userId);
