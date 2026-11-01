@@ -22,6 +22,7 @@ public class InMemoryFilmStorage implements FilmStorage {
 
     @Qualifier("inMemoryUserStorage")
     private final UserStorage userStorage;
+
     @Override
     public Film create(Film film) {
         log.info("Добавление фильма \"{}\"", film.getName());
