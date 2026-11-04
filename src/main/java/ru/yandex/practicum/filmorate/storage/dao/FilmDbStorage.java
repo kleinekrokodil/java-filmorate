@@ -7,7 +7,6 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.InternalServerException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
@@ -28,12 +27,8 @@ public class FilmDbStorage implements FilmStorage {
     private final FilmRowMapper mapper;
     private final GenreRowMapper genreMapper;
 
-    private static final String MISSED_ID_ERROR = "Id должен быть указан";
-
     @Override
     public Film create(Film film) {
-        checkMpa(film);
-        checkGenres(film);
         String query = """
                 INSERT INTO films (name, description, release_date, duration, mpa_id) VALUES(?, ?, ?, ?, ?)
                 """;
@@ -58,17 +53,13 @@ public class FilmDbStorage implements FilmStorage {
             throw new InternalServerException("Не удалось получить id фильма");
         }
         film.setId(id);
-        film.getGenres().forEach(genre -> jdbc.update(
-                "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)",
-                film.getId(), genre.getId()));
+        saveGenres(film);
         log.info("Фильм с Id={} успешно создан", film.getId());
         return film;
     }
 
     @Override
     public Film update(Film film) {
-        checkMpa(film);
-        checkGenres(film);
         String query = """
                 UPDATE films
                 SET name = ?, description = ?, release_date = ?, duration = ?, mpa_id = ?
@@ -84,10 +75,7 @@ public class FilmDbStorage implements FilmStorage {
         if (updated == 0) {
             throw new NotFoundException("Фильм с id = " + film.getId() + " не найден");
         }
-        jdbc.update("DELETE FROM film_genres WHERE film_id = ?", film.getId());
-        film.getGenres().forEach(genre -> jdbc.update(
-                "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)",
-                film.getId(), genre.getId()));
+        updateGenres(film);
         log.info("Фильм с Id={} успешно обновлен", film.getId());
         return get(film.getId()).orElseThrow();
     }
@@ -99,12 +87,7 @@ public class FilmDbStorage implements FilmStorage {
                 MERGE INTO film_likes (film_id, user_id)
                 VALUES (?, ?)
                 """;
-        int updated = jdbc.update(query, filmId, userId);
-        if (updated == 0) {
-            // Если в наличии фильм и пользователь - значит лайк уже стоит, иначе бросаем исключение
-            checkFilmId(filmId);
-            checkUserId(userId);
-        }
+        jdbc.update(query, filmId, userId);
     }
 
     @Override
@@ -114,21 +97,13 @@ public class FilmDbStorage implements FilmStorage {
                 DELETE FROM film_likes
                 WHERE film_id = ? AND user_id=  ?
                 """;
-        int removed = jdbc.update(query, filmId, userId);
-        if (removed == 0) {
-            // Если в наличии фильм и пользователь - значит лайка нет, иначе бросаем исключение
-            checkFilmId(filmId);
-            checkUserId(userId);
-        }
+        jdbc.update(query, filmId, userId);
     }
 
     @Override
     public void delete(Integer filmId) {
         log.info("Удаление фильма с id={}", filmId);
-        int deleted = jdbc.update("DELETE FROM films WHERE id = ?", filmId);
-        if (deleted == 0) {
-            throw new NotFoundException("Фильм с id = " + filmId + " не найден");
-        }
+        jdbc.update("DELETE FROM films WHERE id = ?", filmId);
     }
 
     @Override
@@ -159,6 +134,50 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Collection<Film> getAll() {
         log.info("Получение списка фильмов");
+        List<Film> films = jdbc.query("""
+                SELECT f.*, m.name AS mpa_name
+                FROM films f
+                LEFT JOIN mpa m ON m.id = f.mpa_id
+                """, mapper);
+        loadFilmData(films);
+        return films;
+    }
+
+    @Override
+    public Collection<Film> getPopular(Integer count) {
+        log.info("Получение списка {} наиболее популярных фильмов", count);
+        List<Film> films = jdbc.query("""
+                SELECT f.*, m.name AS mpa_name
+                FROM films f
+                LEFT JOIN mpa m ON m.id = f.mpa_id
+                LEFT JOIN (
+                    SELECT film_id, COUNT(*) AS like_count
+                    FROM film_likes
+                    GROUP BY film_id
+                ) lc ON lc.film_id = f.id
+                ORDER BY COALESCE(lc.like_count, 0) DESC, f.id ASC
+                LIMIT ?
+            """, mapper, count);
+        loadFilmData(films);
+        return films;
+    }
+
+    private void saveGenres(Film film) {
+        if (film.getGenres() == null || film.getGenres().isEmpty()) {
+            return;
+        }
+        List<Object[]> batch = film.getGenres().stream()
+                .map(genre -> new Object[]{film.getId(), genre.getId()})
+                .toList();
+        jdbc.batchUpdate("INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)", batch);
+    }
+
+    private void updateGenres(Film film) {
+        jdbc.update("DELETE FROM film_genres WHERE film_id = ?", film.getId());
+        saveGenres(film);
+    }
+
+    private void loadFilmData(List<Film> films) {
         Map<Integer, Set<Integer>> filmLikes = new HashMap<>();
         jdbc.query("SELECT film_id, user_id FROM film_likes", rs -> {
             filmLikes
@@ -178,65 +197,9 @@ public class FilmDbStorage implements FilmStorage {
                     .computeIfAbsent(rs.getInt("film_id"), k -> new HashSet<>())
                     .add(genre);
         });
-        List<Film> films = jdbc.query("""
-                SELECT f.*, m.name AS mpa_name
-                FROM films f
-                LEFT JOIN mpa m ON m.id = f.mpa_id
-                """, mapper);
         for (Film film : films) {
             film.setLikes(filmLikes.getOrDefault(film.getId(), new HashSet<>()));
             film.setGenres(filmGenres.getOrDefault(film.getId(), new HashSet<>()));
-        }
-        return films;
-    }
-
-    private void checkFilmId(Integer filmId) {
-        if (filmId == null) {
-            log.error(MISSED_ID_ERROR);
-            throw new ValidationException(MISSED_ID_ERROR);
-        }
-        if (get(filmId).isEmpty()) {
-            log.error("Фильм с id = {} не найден", filmId);
-            throw new NotFoundException("Фильм с id = " + filmId + " не найден");
-        }
-    }
-
-    private void checkUserId(Integer userId) {
-        if (userId == null) {
-            log.error(MISSED_ID_ERROR);
-            throw new ValidationException(MISSED_ID_ERROR);
-        }
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM users WHERE id = ?", Integer.class, userId);
-        if (count == null || count == 0) {
-            log.error("Пользователь с id = {} не найден", userId);
-            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-        }
-    }
-
-    private void checkMpa(Film film) {
-        if (film.getMpa() == null) {
-            return;
-        }
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM mpa WHERE id = ?", Integer.class, film.getMpa().getId());
-        if (count == null || count == 0) {
-            log.error("Рейтинг MPA с id = {} не найден", film.getMpa().getId());
-            throw new NotFoundException("Рейтинг MPA с id = " + film.getMpa().getId() + " не найден");
-        }
-    }
-
-    private void checkGenres(Film film) {
-        if (film.getGenres() == null) {
-            return;
-        }
-        for (Genre genre : film.getGenres()) {
-            Integer count = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM genres WHERE id = ?", Integer.class, genre.getId());
-            if (count == null || count == 0) {
-                log.error("Жанр с id = {} не найден", genre.getId());
-                throw new NotFoundException("Жанр с id = " + genre.getId() + " не найден");
-            }
         }
     }
 }

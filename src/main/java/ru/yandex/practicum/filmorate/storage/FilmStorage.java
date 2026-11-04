@@ -19,4 +19,6 @@ public interface FilmStorage {
     Optional<Film> get(Integer filmId);
 
     Collection<Film> getAll();
+
+    Collection<Film> getPopular(Integer count);
 }

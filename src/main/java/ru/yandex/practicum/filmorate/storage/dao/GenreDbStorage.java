@@ -9,7 +9,9 @@ import ru.yandex.practicum.filmorate.storage.GenreStorage;
 import ru.yandex.practicum.filmorate.storage.dao.mappers.GenreRowMapper;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Repository("genreDbStorage")
@@ -22,6 +24,17 @@ public class GenreDbStorage implements GenreStorage {
     public Collection<Genre> getAll() {
         log.info("Получение списка жанров");
         return jdbc.query("SELECT * FROM genres ORDER BY id", mapper);
+    }
+
+    @Override
+    public Collection<Genre> getCollectionByIds(Collection<Integer> genreIds) {
+        log.info("Получение списка жанров с id = {}", genreIds);
+        if (genreIds == null || genreIds.isEmpty()) {
+            return List.of();
+        }
+        String idList = genreIds.stream().map(String::valueOf)
+                .collect(Collectors.joining(","));
+        return jdbc.query("SELECT * FROM genres WHERE id IN (" + idList + ") ORDER BY id", mapper);
     }
 
     @Override
