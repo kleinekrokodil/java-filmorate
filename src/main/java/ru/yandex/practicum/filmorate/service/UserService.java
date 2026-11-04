@@ -3,7 +3,6 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -20,6 +19,8 @@ public class UserService {
     @Qualifier("userDbStorage")
     private final UserStorage userStorage;
 
+    private static final String MISSED_ID_ERROR = "Id должен быть указан";
+
     public User create(User user) {
         if (user.isUserNameEmpty()) {
             user.setName(user.getLogin());
@@ -35,6 +36,7 @@ public class UserService {
     }
 
     public void delete(Integer userId) {
+        checkUserId(userId);
         userStorage.delete(userId);
     }
 
@@ -52,18 +54,9 @@ public class UserService {
             log.error("Id пользователей совпадают");
             throw new ValidationException("Id пользователей совпадают");
         }
-        try {
-            userStorage.addFriend(userId, friendId);
-        } catch (DataIntegrityViolationException e) {
-            if (userStorage.get(userId).isEmpty()) {
-                throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-            }
-            if (userStorage.get(friendId).isEmpty()) {
-                throw new NotFoundException("Пользователь с id = " + friendId + " не найден");
-            }
-            throw e;
-        }
-
+        checkUserId(userId);
+        checkUserId(friendId);
+        userStorage.addFriend(userId, friendId);
     }
 
     public void removeFriend(Integer userId, Integer friendId) {
@@ -71,14 +64,34 @@ public class UserService {
             log.error("Id пользователей совпадают");
             throw new ValidationException("Id пользователей совпадают");
         }
+        checkUserId(userId);
+        checkUserId(friendId);
         userStorage.removeFriend(userId, friendId);
     }
 
     public Collection<User> getFriends(Integer userId) {
+        checkUserId(userId);
         return userStorage.getUserFriends(userId);
     }
 
     public Collection<User> getCommonFriends(Integer user1Id, Integer user2Id) {
+        if (Objects.equals(user1Id, user2Id)) {
+            log.error("Id пользователей совпадают");
+            throw new ValidationException("Id пользователей совпадают");
+        }
+        checkUserId(user1Id);
+        checkUserId(user2Id);
         return userStorage.getCommonFriends(user1Id, user2Id);
+    }
+
+    private void checkUserId(Integer userId) {
+        if (userId == null) {
+            log.error(MISSED_ID_ERROR);
+            throw new ValidationException(MISSED_ID_ERROR);
+        }
+        if (userStorage.get(userId).isEmpty()) {
+            log.error("Пользователь с id = {} не найден", userId);
+            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
+        }
     }
 }

@@ -7,7 +7,6 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.exception.InternalServerException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 import ru.yandex.practicum.filmorate.storage.dao.mappers.UserRowMapper;
@@ -23,8 +22,6 @@ import java.util.*;
 public class UserDbStorage implements UserStorage {
     private final JdbcTemplate jdbc;
     private final UserRowMapper mapper;
-
-    private static final String MISSED_ID_ERROR = "Id должен быть указан";
 
     @Override
     public User create(User user) {
@@ -78,12 +75,7 @@ public class UserDbStorage implements UserStorage {
                 MERGE INTO user_friends (user_id, friend_id) KEY (user_id, friend_id)
                 VALUES (?, ?)
                 """;
-        int updated = jdbc.update(query, userId, friendId);
-        if (updated == 0) {
-            // Если в наличии оба пользователя - значит они друзья, иначе бросаем исключение
-            checkUserId(userId);
-            checkUserId(friendId);
-        }
+        jdbc.update(query, userId, friendId);
     }
 
     @Override
@@ -93,21 +85,13 @@ public class UserDbStorage implements UserStorage {
                 DELETE FROM user_friends
                 WHERE user_id = ? AND friend_id=  ?
                 """;
-        int removed = jdbc.update(query, userId, friendId);
-        if (removed == 0) {
-            // Если в наличии оба пользователя - значит они не друзья, иначе бросаем исключение
-            checkUserId(userId);
-            checkUserId(friendId);
-        }
+        jdbc.update(query, userId, friendId);
     }
 
     @Override
     public void delete(Integer userId) {
         log.info("Удаление пользователя с id={}", userId);
-        int deleted = jdbc.update("DELETE FROM users WHERE id = ?", userId);
-        if (deleted == 0) {
-            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-        }
+        jdbc.update("DELETE FROM users WHERE id = ?", userId);
     }
 
     @Override
@@ -141,7 +125,6 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public Collection<User> getUserFriends(Integer userId) {
-        checkUserId(userId);
         return jdbc.query("""
                         SELECT u.id, u.email, u.login, u.name, u.birthday
                         FROM users u
@@ -153,8 +136,6 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public Collection<User> getCommonFriends(Integer user1Id, Integer user2Id) {
-        checkUserId(user1Id);
-        checkUserId(user2Id);
         return jdbc.query("""
                         SELECT u.id, u.email, u.login, u.name, u.birthday
                         FROM users u
@@ -163,16 +144,5 @@ public class UserDbStorage implements UserStorage {
                         WHERE uf1.user_id = ? AND uf2.user_id = ?
                         """,
                 mapper, user1Id, user2Id);
-    }
-
-    private void checkUserId(Integer userId) {
-        if (userId == null) {
-            log.error(MISSED_ID_ERROR);
-            throw new ValidationException(MISSED_ID_ERROR);
-        }
-        if (get(userId).isEmpty()) {
-            log.error("Пользователь с id = {} не найден", userId);
-            throw new NotFoundException("Пользователь с id = " + userId + " не найден");
-        }
     }
 }
