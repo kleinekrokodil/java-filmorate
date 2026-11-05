@@ -10,9 +10,15 @@ public interface FilmStorage {
 
     Film update(Film film);
 
+    void addLike(Integer filmId, Integer userId);
+
+    void removeLike(Integer filmId, Integer userId);
+
     void delete(Integer filmId);
 
     Optional<Film> get(Integer filmId);
 
     Collection<Film> getAll();
+
+    Collection<Film> getPopular(Integer count);
 }
